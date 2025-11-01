@@ -1,5 +1,6 @@
 pyTelegramBotAPI
 numpy
-python-dotenv
-ffmpeg-python
+Pillow
 moviepy
+imageio-ffmpeg
+python-dotenv
