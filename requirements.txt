@@ -2,7 +2,7 @@ Flask
 pyTelegramBotAPI
 python-dotenv
 requests
-moviepy
+moviepy==1.0.3
 Pillow
 imageio-ffmpeg
 gunicorn
