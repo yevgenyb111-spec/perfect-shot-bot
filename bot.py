@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request
 import telebot
-from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.editor import VideoFileClip
 from PIL import Image
 
 # ✅ Env variables
