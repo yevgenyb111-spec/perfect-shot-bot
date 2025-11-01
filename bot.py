@@ -1,51 +1,43 @@
 import os
 import telebot
-from PIL import Image
 from moviepy.editor import VideoFileClip
-from flask import Flask
+from PIL import Image
 
+# ✅ Bot token
 TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
-app = Flask(__name__)  # просто healthcheck для Render
 
+# ✅ Start command
 @bot.message_handler(commands=['start'])
 def start(message):
-    caption = "🤖 *Perfect Shot Bot*\n\nSend me a video and I will pick the best frame."
-    try:
-        with open("logo.png", "rb") as f:
-            bot.send_photo(message.chat.id, f, caption=caption, parse_mode="Markdown")
-    except FileNotFoundError:
-        bot.reply_to(message, caption, parse_mode="Markdown")
+    caption = "🤖 *Perfect Shot Bot*\n\nSend me a video and I will pick the best frame for you! 🎬✨"
+    bot.reply_to(message, caption, parse_mode="Markdown")
 
+# ✅ Handle video
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
-    bot.reply_to(message, "🎬 Video received! Processing... Please wait.")
+    bot.reply_to(message, "🎬 Video received! Processing... Please wait!")
+
     file_info = bot.get_file(message.video.file_id)
-    downloaded = bot.download_file(file_info.file_path)
+    downloaded_file = bot.download_file(file_info.file_path)
 
     video_path = "input.mp4"
     with open(video_path, "wb") as f:
-        f.write(downloaded)
+        f.write(downloaded_file)
 
-    # Берём середину
     clip = VideoFileClip(video_path)
-    t = clip.duration / 2
-    frame = clip.get_frame(t)
-    frame_img = Image.fromarray(frame)
+    best_frame_time = clip.duration / 2  
+    frame = clip.get_frame(best_frame_time)
+
     frame_path = "best_frame.png"
-    frame_img.save(frame_path)
+    Image.fromarray(frame).save(frame_path)
+
+    with open(frame_path, "rb") as frame_file:
+        bot.send_photo(message.chat.id, frame_file, caption="✨ Best frame selected!")
+
     clip.close()
     os.remove(video_path)
-
-    with open(frame_path, "rb") as f:
-        bot.send_photo(message.chat.id, f, caption="✨ Best frame")
     os.remove(frame_path)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "OK", 200
-
-if __name__ == "__main__":
-    # В polling нет холодного старта вебхука — надёжнее на Free
-    bot.remove_webhook()
-    bot.infinity_polling(timeout=30, long_polling_timeout=30)
+# ✅ Run bot
+bot.polling(none_stop=True)
