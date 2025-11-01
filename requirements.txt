@@ -1,6 +1,4 @@
-pyTelegramBotAPI
-numpy
-Pillow
+telebot
+Flask
 moviepy
-imageio-ffmpeg
-python-dotenv
+Pillow
