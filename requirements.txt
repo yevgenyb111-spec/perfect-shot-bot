@@ -2,3 +2,7 @@ telebot
 Flask
 moviepy
 Pillow
+face_recognition
+numpy
+python-dotenv
+gunicorn
