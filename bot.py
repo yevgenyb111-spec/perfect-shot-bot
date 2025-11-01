@@ -4,7 +4,7 @@ import telebot
 from moviepy.editor import VideoFileClip
 
 # ✅ Env variables
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 bot = telebot.TeleBot(TOKEN)
