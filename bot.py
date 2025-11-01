@@ -1,8 +1,9 @@
 import os
 from flask import Flask, request
 import telebot
-from moviepy.video.io.VideoFileClip 
-import VideoFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from PIL import Image
+
 # ✅ Env variables
 TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
@@ -10,11 +11,11 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# ✅ /start command
+# ✅ Start command
 @bot.message_handler(commands=['start'])
 def start(message):
     logo_path = "logo.png"
-    caption = "🤖 *Perfect Shot Bot*\n\nSend me a video and I will pick the best frame for you! 🎯"
+    caption = "🤖 *Perfect Shot Bot*\n\nSend me a video and I will pick the best frame 📸"
 
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as logo:
@@ -22,10 +23,11 @@ def start(message):
     else:
         bot.reply_to(message, caption, parse_mode="Markdown")
 
-# ✅ Handle incoming video
+
+# ✅ Handle video
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
-    bot.reply_to(message, "✅ Video received! Processing... Please wait ⏳")
+    bot.reply_to(message, "🎬 Video received! Processing... Please wait ⏳")
 
     file_info = bot.get_file(message.video.file_id)
     downloaded_file = bot.download_file(file_info.file_path)
@@ -34,24 +36,24 @@ def handle_video(message):
     with open(video_path, "wb") as f:
         f.write(downloaded_file)
 
-    # ✅ Extract frame (middle frame)
+    # ✅ Extract middle frame
     clip = VideoFileClip(video_path)
     best_frame_time = clip.duration / 2
-    frame = clip.get_frame(best_frame_time)
 
+    frame = clip.get_frame(best_frame_time)
     frame_path = "best_frame.png"
-    from PIL import Image
     Image.fromarray(frame).save(frame_path)
 
-    # ✅ Send frame
+    # ✅ Send back frame
     with open(frame_path, "rb") as frame_file:
-        bot.send_photo(message.chat.id, frame_file, caption="✨ Best frame found!")
+        bot.send_photo(message.chat.id, frame_file, caption="✨ Best frame extracted!")
 
     clip.close()
     os.remove(video_path)
     os.remove(frame_path)
 
-# ✅ Webhook route for Telegram
+
+# ✅ Webhook endpoint
 @app.route('/webhook', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -61,10 +63,12 @@ def webhook():
         return "OK", 200
     return "Wrong content", 403
 
-# ✅ Health check
+
+# ✅ Render health check
 @app.route('/', methods=['GET'])
 def home():
-    return "Perfect Shot Bot - OK"
+    return "Perfect Shot Bot ✅"
+
 
 # ✅ Start server
 if __name__ == "__main__":
