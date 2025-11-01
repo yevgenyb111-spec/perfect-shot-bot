@@ -1,48 +1,71 @@
-
-import telebot
 import os
-import subprocess
-from dotenv import load_dotenv
+import telebot
+import tempfile
+from moviepy.editor import VideoFileClip
+from PIL import Image
+import numpy as np
 
-load_dotenv()
-TOKEN = os.getenv("7403753745:AAH4-ZoSXWa8858jbV8XE87gA0SZrjQCEa4")
-bot = telebot.TeleBot(TOKEN)
+# ✅ Загружаем переменные среды, если есть dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
+# ✅ Читаем токен (Render / .env)
+BOT_TOKEN = os.environ.get("7403753745:AAH4-ZoSXWa8858jbV8XE87gA0SZrjQCEa4")
+
+bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
-def start(msg):
-    bot.reply_to(msg, "📸 Perfect Shot\n\nОтправь мне видео, и я выберу лучший кадр 👌")
+def start_message(message):
+    bot.reply_to(
+        message,
+        "📸 *Perfect Shot*\n\nОтправь мне видео, и я выберу лучший кадр 👌",
+        parse_mode="Markdown"
+    )
+
+def choose_best_frame(video_path):
+    clip = VideoFileClip(video_path)
+
+    best_frame = None
+    best_score = -1
+
+    for t in np.arange(0, clip.duration, 0.3):  # берём кадр каждые 0.3 сек
+        frame = clip.get_frame(t)
+        gray = np.mean(frame)  # простая эвристика — яркость картинки
+        if gray > best_score:
+            best_score = gray
+            best_frame = frame
+
+    frame_img = Image.fromarray(best_frame)
+    return frame_img
 
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
     bot.reply_to(message, "⏳ Обрабатываю видео...")
 
     file_info = bot.get_file(message.video.file_id)
-    downloaded = bot.download_file(file_info.file_path)
+    downloaded_file = bot.download_file(file_info.file_path)
 
-    video_path = "video.mp4"
-    with open(video_path, "wb") as new_file:
-        new_file.write(downloaded)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
+        temp_video.write(downloaded_file)
+        temp_video_path = temp_video.name
 
-    # Создаем папку для кадров
-    frames_dir = "frames"
-    if not os.path.exists(frames_dir):
-        os.makedirs(frames_dir)
+    try:
+        best_frame = choose_best_frame(temp_video_path)
 
-    # Извлекаем кадры через FFmpeg
-    subprocess.call(f"ffmpeg -i {video_path} {frames_dir}/frame_%03d.jpg", shell=True)
+        result_path = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg").name
+        best_frame.save(result_path)
 
-    # Выбираем "лучший" кадр — пока просто берём средний
-    files = sorted(os.listdir(frames_dir))
-    if not files:
-        bot.reply_to(message, "❌ Не удалось извлечь кадры")
-        return
+        with open(result_path, "rb") as photo:
+            bot.send_photo(message.chat.id, photo, caption="✅ Лучший кадр найден!")
 
-    best_frame = os.path.join(frames_dir, files[len(files)//2])
+    except Exception as e:
+        bot.send_message(message.chat.id, f"⚠️ Ошибка обработки: {e}")
+    finally:
+        os.remove(temp_video_path)
 
-    # Отправляем фото пользователю
-    with open(best_frame, "rb") as photo:
-        bot.send_photo(message.chat.id, photo, caption="✅ Лучший кадр")
-
-    os.remove(video_path)
-
-bot.infinity_polling()
+# ✅ Запуск
+if __name__ == "__main__":
+    bot.polling(none_stop=True)
