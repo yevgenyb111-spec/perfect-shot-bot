@@ -2,3 +2,4 @@ pytelegrambotapi
 requests
 
 ffmpeg-python
+python-dotenv
