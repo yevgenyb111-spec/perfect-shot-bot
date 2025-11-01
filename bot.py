@@ -1,55 +1,25 @@
 import os
-from flask import Flask, request
 import telebot
-import subprocess
+from flask import Flask, request
 
-TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-
-bot = telebot.TeleBot(TOKEN)
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 app = Flask(__name__)
+
+@app.route("/", methods=["POST", "GET"])
+def webhook():
+    if request.method == "POST":
+        json_str = request.get_data().decode("utf-8")
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return "OK", 200
+    return "Bot alive", 200
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(
-        message,
-        "🎬 *Perfect Shot Bot*\n\n"
-        "Send me a video and I will pick the best frame for you! 📸✨",
-        parse_mode="Markdown"
-    )
+    bot.reply_to(message, "Send me a video and I will pick the best frame! 🎬✨")
 
-@bot.message_handler(content_types=['video'])
-def handle_video(message):
-    bot.reply_to(message, "📥 Video received! Extracting best frame...")
-
-    file_id = message.video.file_id
-    file_info = bot.get_file(file_id)
-    downloaded = bot.download_file(file_info.file_path)
-
-    video_path = "input.mp4"
-    frame_path = "frame.jpg"
-
-    with open(video_path, "wb") as file:
-        file.write(downloaded)
-
-    # FFmpeg extract frame (10th frame = usually best face)
-    cmd = f"ffmpeg -y -i {video_path} -vf 'select=eq(n\\,10)' -vframes 1 {frame_path}"
-    subprocess.run(cmd, shell=True)
-
-    if os.path.exists(frame_path):
-        with open(frame_path, "rb") as photo:
-            bot.send_photo(message.chat.id, photo, caption="✅ Best frame found!")
-    else:
-        bot.reply_to(message, "❌ Error extracting frame.")
-
-@app.route('/' + TOKEN, methods=['POST'])
-def receive_update():
-    json_update = request.stream.read().decode('utf-8')
-    bot.process_new_updates([telebot.types.Update.de_json(json_update)])
-    return "OK", 200
-
-@app.route('/')
-def set_webhook():
+if __name__ == "__main__":
     bot.remove_webhook()
-    bot.set_webhook(WEBHOOK_URL + TOKEN)
-    return "Webhook set", 200
+    bot.set_webhook(os.getenv("WEBHOOK_URL"))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
