@@ -1,85 +1,73 @@
-
 import os
 from flask import Flask, request
 import telebot
-from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.editor import VideoFileClip
 
+# ✅ Env variables
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-bot = telebot.TeleBot(TOKEN)
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
+bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# 📸 Send welcome & logo on /start
+# ✅ /start command
 @bot.message_handler(commands=['start'])
 def start(message):
-    logo_path = "logo.png"  # make sure logo is in repo
-    caption = "🤖 *Perfect Shot Bot*\n\n📽️ Send me a short video & I will pick the best frame!"
-    
-    if os.path.exists(logo_path):
-        with open(logo_path, "rb") as f:
-            bot.send_photo(message.chat.id, f, caption=caption, parse_mode="Markdown")
-    else:
-        bot.reply_to(message, caption)
+    logo_path = "logo.png"
+    caption = "🤖 *Perfect Shot Bot*\n\nSend me a video and I will pick the best frame for you! 🎯"
 
-# 🎬 Handle incoming video
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as logo:
+            bot.send_photo(message.chat.id, logo, caption=caption, parse_mode="Markdown")
+    else:
+        bot.reply_to(message, caption, parse_mode="Markdown")
+
+# ✅ Handle incoming video
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
     bot.reply_to(message, "✅ Video received! Processing... Please wait ⏳")
 
-    try:
-        file_info = bot.get_file(message.video.file_id)
-        downloaded = bot.download_file(file_info.file_path)
+    file_info = bot.get_file(message.video.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
 
-        input_video_path = "input.mp4"
-        output_image_path = "best_frame.png"
+    video_path = "input.mp4"
+    with open(video_path, "wb") as f:
+        f.write(downloaded_file)
 
-        with open(input_video_path, "wb") as f:
-            f.write(downloaded)
+    # ✅ Extract frame (middle frame)
+    clip = VideoFileClip(video_path)
+    best_frame_time = clip.duration / 2
+    frame = clip.get_frame(best_frame_time)
 
-        clip = VideoFileClip(input_video_path)
-        frames = []
-        duration = clip.duration
-        step = duration / 10  # analyze 10 frames
+    frame_path = "best_frame.png"
+    from PIL import Image
+    Image.fromarray(frame).save(frame_path)
 
-        for i in range(10):
-            t = i * step
-            frame = clip.get_frame(t)
-            frames.append(frame)
+    # ✅ Send frame
+    with open(frame_path, "rb") as frame_file:
+        bot.send_photo(message.chat.id, frame_file, caption="✨ Best frame found!")
 
-        # Pick sharpest frame
-        import cv2
-        import numpy as np
+    clip.close()
+    os.remove(video_path)
+    os.remove(frame_path)
 
-        best_score = -1
-        best_frame = None
+# ✅ Webhook route for Telegram
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_str = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return "OK", 200
+    return "Wrong content", 403
 
-        for frame in frames:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            score = cv2.Laplacian(gray, cv2.CV_64F).var()
-            if score > best_score:
-                best_score = score
-                best_frame = frame
+# ✅ Health check
+@app.route('/', methods=['GET'])
+def home():
+    return "Perfect Shot Bot - OK"
 
-        best_frame_bgr = cv2.cvtColor(best_frame, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(output_image_path, best_frame_bgr)
-
-        with open(output_image_path, "rb") as f:
-            bot.send_photo(message.chat.id, f, caption="✨ Best frame found!")
-
-    except Exception as e:
-        bot.reply_to(message, f"⚠️ Error processing video:\n`{e}`", parse_mode="Markdown")
-
-# Flask webhook endpoint
-@app.route("/", methods=["POST"])
-def receive_update():
-    json_str = request.get_data().decode("utf-8")
-    update = telebot.types.Update.de_json(json_str)
-    bot.process_new_updates([update])
-    return "OK", 200
-
+# ✅ Start server
 if __name__ == "__main__":
-    # Set webhook if missing
     bot.remove_webhook()
     bot.set_webhook(url=WEBHOOK_URL)
     app.run(host="0.0.0.0", port=5000)
