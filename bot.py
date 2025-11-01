@@ -1,6 +1,7 @@
 
 import telebot
 import os
+from flask import Flask, request
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from PIL import Image
 import face_recognition
@@ -8,6 +9,7 @@ import numpy as np
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 
 def score_frame(frame):
     rgb = frame[:, :, ::-1]
@@ -23,15 +25,16 @@ def score_frame(frame):
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message,
+    bot.reply_to(
+        message,
         "🤖 *Perfect Shot Bot*\n"
-        "Send me a video and I'll choose your best frame 📸✨",
+        "Send me a video and I'll pick your best frame 📸✨",
         parse_mode="Markdown"
     )
 
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
-    bot.reply_to(message, "⏳ Processing your video... please wait")
+    bot.reply_to(message, "⏳ Processing video... please wait")
 
     file_info = bot.get_file(message.video.file_id)
     file_path = file_info.file_path
@@ -43,7 +46,7 @@ def handle_video(message):
 
     clip = VideoFileClip(video_name)
     frames = []
-    
+
     for t in np.linspace(0, clip.duration, num=20):
         frame = clip.get_frame(t)
         score = score_frame(frame)
@@ -62,4 +65,11 @@ def handle_video(message):
     os.remove(video_name)
     os.remove(result_path)
 
-bot.polling()
+@app.route('/', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_str = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+        return ''
+    return 'OK'
