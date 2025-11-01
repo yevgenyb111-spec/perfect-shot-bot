@@ -1,7 +1,8 @@
 
 pyTelegramBotAPI
-flask
-gunicorn
+Flask
 moviepy
+opencv-python-headless
 Pillow
-python-dotenv
+numpy
+gunicorn
