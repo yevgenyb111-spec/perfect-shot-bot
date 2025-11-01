@@ -1,8 +1,8 @@
 import os
 from flask import Flask, request
 import telebot
-from moviepy.editor import VideoFileClip
-
+from moviepy.video.io.VideoFileClip 
+import VideoFileClip
 # ✅ Env variables
 TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
