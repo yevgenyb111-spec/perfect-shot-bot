@@ -3,7 +3,7 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 from PIL import Image
 import os
 
-TOKEN = os.getenv("7403753745:AAH4-ZoSXWa8858jbV8XE87gA0SZrjQCEa4")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 bot = telebot.TeleBot(TOKEN)
 
