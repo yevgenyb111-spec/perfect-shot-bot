@@ -1,43 +1,55 @@
 import os
+from flask import Flask, request
 import telebot
-from moviepy.editor import VideoFileClip
-from PIL import Image
+import subprocess
 
-# ✅ Bot token
 TOKEN = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(TOKEN)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-# ✅ Start command
+bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    caption = "🤖 *Perfect Shot Bot*\n\nSend me a video and I will pick the best frame for you! 🎬✨"
-    bot.reply_to(message, caption, parse_mode="Markdown")
+    bot.reply_to(
+        message,
+        "🎬 *Perfect Shot Bot*\n\n"
+        "Send me a video and I will pick the best frame for you! 📸✨",
+        parse_mode="Markdown"
+    )
 
-# ✅ Handle video
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
-    bot.reply_to(message, "🎬 Video received! Processing... Please wait!")
+    bot.reply_to(message, "📥 Video received! Extracting best frame...")
 
-    file_info = bot.get_file(message.video.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
+    file_id = message.video.file_id
+    file_info = bot.get_file(file_id)
+    downloaded = bot.download_file(file_info.file_path)
 
     video_path = "input.mp4"
-    with open(video_path, "wb") as f:
-        f.write(downloaded_file)
+    frame_path = "frame.jpg"
 
-    clip = VideoFileClip(video_path)
-    best_frame_time = clip.duration / 2  
-    frame = clip.get_frame(best_frame_time)
+    with open(video_path, "wb") as file:
+        file.write(downloaded)
 
-    frame_path = "best_frame.png"
-    Image.fromarray(frame).save(frame_path)
+    # FFmpeg extract frame (10th frame = usually best face)
+    cmd = f"ffmpeg -y -i {video_path} -vf 'select=eq(n\\,10)' -vframes 1 {frame_path}"
+    subprocess.run(cmd, shell=True)
 
-    with open(frame_path, "rb") as frame_file:
-        bot.send_photo(message.chat.id, frame_file, caption="✨ Best frame selected!")
+    if os.path.exists(frame_path):
+        with open(frame_path, "rb") as photo:
+            bot.send_photo(message.chat.id, photo, caption="✅ Best frame found!")
+    else:
+        bot.reply_to(message, "❌ Error extracting frame.")
 
-    clip.close()
-    os.remove(video_path)
-    os.remove(frame_path)
+@app.route('/' + TOKEN, methods=['POST'])
+def receive_update():
+    json_update = request.stream.read().decode('utf-8')
+    bot.process_new_updates([telebot.types.Update.de_json(json_update)])
+    return "OK", 200
 
-# ✅ Run bot
-bot.polling(none_stop=True)
+@app.route('/')
+def set_webhook():
+    bot.remove_webhook()
+    bot.set_webhook(WEBHOOK_URL + TOKEN)
+    return "Webhook set", 200
