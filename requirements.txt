@@ -1,5 +1,5 @@
-pytelegrambotapi
-requests
-
-ffmpeg-python
+pyTelegramBotAPI
+numpy
 python-dotenv
+ffmpeg-python
+moviepy
