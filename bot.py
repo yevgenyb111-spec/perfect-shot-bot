@@ -4,7 +4,6 @@ import os
 from flask import Flask, request
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from PIL import Image
-import face_recognition
 import numpy as np
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
