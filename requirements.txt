@@ -1,8 +1,7 @@
-telebot
-Flask
+
+pyTelegramBotAPI
+flask
+gunicorn
 moviepy
 Pillow
-face_recognition
-numpy
 python-dotenv
-gunicorn
